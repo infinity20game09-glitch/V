@@ -1,0 +1,8 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+app/src/main/assets/model-fr/
+app/src/main/assets/model-en/
+.cxx/
