@@ -10,19 +10,21 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Toast
+import kotlin.math.abs
 
 class MainActivity : Activity() {
     private lateinit var orb: OrbView
+    private lateinit var detector: GestureDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
-        val d = resources.displayMetrics.density
 
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.BLACK)
@@ -33,16 +35,38 @@ class MainActivity : Activity() {
                 startService(Intent(this, VoiceService::class.java).setAction(VoiceService.ACTION_TALK))
             }
         }
-
-        val gear = GearView(this)
-        val size = (52 * d).toInt()
-        val lp = FrameLayout.LayoutParams(size, size)
-        lp.leftMargin = (12 * d).toInt()
-        lp.topMargin = (36 * d).toInt()
-        root.addView(gear, lp)
-        gear.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
-
         setContentView(root)
+
+        detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (e1 == null) return false
+                val w = resources.displayMetrics.widthPixels
+                val dx = e2.x - e1.x
+                val dy = e2.y - e1.y
+                if (e1.x > w * 0.40f && e1.x < w * 0.95f && dx < -w * 0.20f &&
+                    abs(dx) > abs(dy) * 1.5f && vx < -600f
+                ) {
+                    openSettings()
+                    return true
+                }
+                return false
+            }
+        })
+
+        if (!Core.prefs.getBoolean("hintShown", false)) {
+            Core.prefs.edit().putBoolean("hintShown", true).apply()
+            Toast.makeText(this, "Glisse vers la gauche pour ouvrir les paramètres.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        detector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun openSettings() {
+        startActivity(Intent(this, SettingsActivity::class.java))
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
     }
 
     override fun onStart() {

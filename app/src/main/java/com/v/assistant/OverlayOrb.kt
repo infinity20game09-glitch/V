@@ -19,7 +19,7 @@ class OverlayOrb(private val ctx: Context) {
         main.post {
             if (view != null || !Settings.canDrawOverlays(ctx)) return@post
             val v = OrbView(ctx, true)
-            val h = (260 * ctx.resources.displayMetrics.density).toInt()
+            val h = (208 * ctx.resources.displayMetrics.density).toInt()
             val lp = WindowManager.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, h,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,

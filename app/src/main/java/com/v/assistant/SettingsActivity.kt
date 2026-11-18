@@ -6,6 +6,8 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -13,6 +15,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
@@ -28,6 +33,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Locale
+import kotlin.math.abs
 
 class SettingsActivity : Activity() {
     private val CYAN = Color.rgb(0, 229, 255)
@@ -51,7 +57,28 @@ class SettingsActivity : Activity() {
     private val switches = HashMap<String, Switch>()
     private var pendingKey: String? = null
 
+    private lateinit var detector: GestureDetector
+    private val seeks = ArrayList<SeekBar>()
+    private var ignoreGesture = false
+
     private fun dp(n: Int) = (n * d).toInt()
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) ignoreGesture = onSeek(ev.rawX.toInt(), ev.rawY.toInt())
+        detector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun onSeek(x: Int, y: Int): Boolean {
+        val r = Rect()
+        for (s in seeks) if (s.getGlobalVisibleRect(r) && r.contains(x, y)) return true
+        return false
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +93,18 @@ class SettingsActivity : Activity() {
         box.setPadding(dp(18), dp(40), dp(18), dp(40))
         scroll.addView(box, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
+        detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (e1 == null || ignoreGesture) return false
+                val w = resources.displayMetrics.widthPixels
+                val dx = e2.x - e1.x
+                val dy = e2.y - e1.y
+                if (e1.x > w * 0.05f && e1.x < w * 0.60f && dx > w * 0.25f &&
+                    abs(dx) > abs(dy) * 1.5f && vx > 800f
+                ) { finish(); return true }
+                return false
+            }
+        })
 
         header("PARAMÈTRES")
         buildVoiceSection()
@@ -174,6 +213,7 @@ class SettingsActivity : Activity() {
 
     private fun seek(start: Int, onChange: (Int) -> Unit): SeekBar {
         val s = SeekBar(this)
+        seeks.add(s)
         s.max = 200
         s.progress = start.coerceIn(50, 200)
         s.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {

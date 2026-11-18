@@ -89,7 +89,7 @@ class VoiceService : Service(), Stt.Listener {
         tts = Tts(this) { onSpeakingDone() }
         stt = Stt(this, this).also { it.start(Core.lang) }
         Core.prefs.registerOnSharedPreferenceChangeListener(prefListener)
-        Thread { if (!Core.modelReady) ModelManager.loadSaved() }.start()
+        Thread { ModelManager.ensureLoaded() }.start()
         return START_NOT_STICKY
     }
 
@@ -117,7 +117,13 @@ class VoiceService : Service(), Stt.Listener {
     override fun onFinal(t: String) { main.post { handleFinal(t) } }
 
     private fun handlePartial(t: String) {
-        if (Core.state == VState.IDLE && Wake.find(t) != null) activate()
+        if (Core.state == VState.IDLE) {
+            if (Wake.find(t) != null) activate()
+        } else if (Core.state == VState.LISTENING) {
+            awaitUntil = SystemClock.elapsedRealtime() + 4000
+            main.removeCallbacks(idleRunnable)
+            main.postDelayed(idleRunnable, 4100)
+        }
     }
 
     private fun handleFinal(t: String) {
@@ -133,10 +139,10 @@ class VoiceService : Service(), Stt.Listener {
 
     private fun activate() {
         Core.state = VState.LISTENING
-        awaitUntil = SystemClock.elapsedRealtime() + 8000
+        awaitUntil = SystemClock.elapsedRealtime() + 4000
         if (!Core.appVisible) overlay?.show()
         main.removeCallbacks(idleRunnable)
-        main.postDelayed(idleRunnable, 8100)
+        main.postDelayed(idleRunnable, 4100)
     }
 
     private fun goIdle() {
@@ -162,8 +168,11 @@ class VoiceService : Service(), Stt.Listener {
 
     private fun runTurn() {
         try {
-            if (!Core.modelReady) {
-                speakPart("Aucun modèle n'est connecté. Ouvre les paramètres pour en ajouter un.")
+            if (!ModelManager.ensureLoaded()) {
+                speakPart(
+                    if (Core.modelPath == null) "Aucun modèle n'est connecté. Glisse vers la gauche pour ouvrir les paramètres et en ajouter un."
+                    else "Le modèle n'a pas pu être chargé. Ferme d'autres applications et réessaie."
+                )
                 return
             }
             val roles = ArrayList<String>()
@@ -221,9 +230,9 @@ class VoiceService : Service(), Stt.Listener {
     private fun finishTurn() {
         if (generating) return
         Core.state = VState.LISTENING
-        awaitUntil = SystemClock.elapsedRealtime() + 6000
+        awaitUntil = SystemClock.elapsedRealtime() + 4000
         main.removeCallbacks(idleRunnable)
-        main.postDelayed(idleRunnable, 6100)
+        main.postDelayed(idleRunnable, 4100)
     }
 
     // ---- arrêt ----

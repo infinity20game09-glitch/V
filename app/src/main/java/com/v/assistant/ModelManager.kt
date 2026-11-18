@@ -10,6 +10,15 @@ import java.io.FileOutputStream
 object ModelManager {
     private val main = Handler(Looper.getMainLooper())
     @Volatile var info: Gguf.Info? = null
+    private val loadLock = Any()
+
+    fun ensureLoaded(): Boolean {
+        var ok = false
+        synchronized(loadLock) {
+            ok = if (Core.modelReady) true else loadSaved()
+        }
+        return ok
+    }
 
     private fun post(r: () -> Unit) { main.post { r() } }
     private fun dir(): File = File(Core.app.filesDir, "models").apply { mkdirs() }
@@ -87,7 +96,7 @@ object ModelManager {
                     return@Thread
                 }
                 post { onProgress(95, "Chargement en mémoire…") }
-                val ok = Llm.nativeLoad(dest.absolutePath, 4096, threads())
+                val ok = synchronized(loadLock) { Llm.nativeLoad(dest.absolutePath, 4096, threads()) }
                 if (!ok) {
                     post { onDone(false, "Chargement impossible (mémoire insuffisante ou format non pris en charge).") }
                     return@Thread
