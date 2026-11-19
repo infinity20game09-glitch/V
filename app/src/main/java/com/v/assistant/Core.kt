@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 
 enum class VState { IDLE, LISTENING, THINKING, SPEAKING }
 
-class VApp : Application() {
+class VApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         Core.init(this)
